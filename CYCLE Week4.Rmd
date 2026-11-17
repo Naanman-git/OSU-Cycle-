@@ -1,0 +1,192 @@
+---
+title: "CYCLE Week4"
+author: ""
+date: "2026-10-27"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Week 4 Packet: Estimating Intensity from Counts
+
+*Point Process Research Club · about 2 hours this week*
+
+## How this week works
+
+Same rhythm as before. Budget your time roughly like this:
+
+| Part | What                 | Time   |
+|------|----------------------|--------|
+| 1    | Reading              | 25 min |
+| 2    | Three short problems | 30 min |
+| 3    | Simulation in R      | 40 min |
+| 4    | Wrap-up              | 15 min |
+
+**What to bring to the next meeting:**
+
+1.  Your R notebook, pushed to your folder in the shared repository. It should run from top to bottom without errors.
+2.  Your answers to the three problems, with a few lines of work each.
+
+------------------------------------------------------------------------
+
+## Part 1: Reading (about 25 minutes)
+
+**Where we left off.** For three weeks we went *forward*: we picked an intensity and simulated points from it. This week we go *backward*. Given counts of events, how do we estimate the intensity that produced them? That is the core job of a statistician working with real data.
+
+**Quick recall**. We will need the following algebraic rules.
+
+1.  exp(a + b) = exp(a) × exp(b). Adding on the log scale means multiplying on the original scale.
+2.  log(a × b) = log(a) + log(b).
+3.  exp(log(a)) = a, and exp(x) is always positive.
+
+**Estimating one constant intensity.** Suppose a region of area A has n events and we believe the intensity is a constant λ. The natural guess is
+
+> λ-hat = n / A
+
+events per unit area. This is also the answer to the question “which value of λ makes the data we saw most probable?” That idea is called *maximum likelihood*: choose the parameter values that make the observed data as likely as possible. For a constant intensity, the answer is simply the count divided by the area.
+
+**Why we count in pieces.** Real data often arrive as counts for pieces of a map: events per province per week, for example. From Weeks 1 and 3 we know that if the events follow a Poisson process, then counts in non-overlapping pieces are independent, and a piece with area a and intensity λ has a count that is Poisson with mean λ × a. So a table of counts, one row per piece, is already a Poisson dataset.
+
+**Letting the intensity depend on something.** Suppose each piece has a measured covariate z (for example, its population, standardized). We model the intensity as
+
+> log λ = β₀ + β₁ z
+
+Why the log? It keeps λ positive no matter what β₀, β₁, and z are, and it makes effects *multiply* instead of add. By review fact 1, λ = exp(β₀) × exp(β₁ z). Raising z by one unit multiplies the intensity by exp(β₁). So if β₁ = 0.5, each extra unit of z multiplies the intensity by exp(0.5), about 1.65, which is 65% more events per unit area.
+
+**The offset.** The *expected count* in a piece is the intensity times the area:
+
+> expected count = a × exp(β₀ + β₁ z)
+
+Taking logs of both sides (review fact 2):
+
+> log(expected count) = log(a) + β₀ + β₁ z
+
+The term log(a) is known, not estimated: it is like a covariate whose coefficient is fixed at exactly 1. Statisticians call it an **offset**. It is what lets pieces of very different sizes be compared fairly. Without it, a large province would look like it has a high intensity just because it is large.
+
+**Fitting it in R.** This is called Poisson regression:
+
+``` {r}
+fit <- glm(counts ~ z + offset(log(area)), family = poisson)
+summary(fit)
+```
+
+The output gives an estimate and a *standard error* for each coefficient. The standard error says roughly how much the estimate would wobble if you collected a new dataset from the same process.
+
+**What binning costs us.** When we count events per piece, we throw away where inside each piece they happened. Fitting the exact locations (which a package such as `spatstat` can do) uses more information, but binned counts are simpler and are often the only data we have. In real datasets, the pieces are frequently administrative units like provinces, which differ enormously in area, so the offset matters a lot.
+
+**Looking ahead.** Soon we will apply this to weekly event counts per province from a real conflict dataset. Each row will be one province in one week, and the offset will account for how big each province is.
+
+**Key terms:** estimate, maximum likelihood, covariate, log link, coefficient, offset, Poisson regression, standard error.
+
+------------------------------------------------------------------------
+
+## Part 2: Problems (about 30 minutes)
+
+Show a few lines of work for each. Where you need exp or logs, a calculator or R is fine.
+
+**Problem 1.** Region 1 has area 4 km² and 12 events. Region 2 has area 6 km² and 9 events. Assume the same constant intensity in both.
+
+(a) What intensity would you estimate from Region 1 alone? From Region 2 alone?
+
+(b) What is the estimate if you combine both regions, using total events divided by total area?
+
+(c) The simple average of your two answers in (a) is not the same as your answer in (b). Why does the combined estimate not equal the simple average?
+
+**Problem 2.** A fitted model says log λ = 1.0 + 0.5 z, where λ is in events per km².
+
+(a) What is λ when z = 0?
+
+(b) What is λ when z = 2?
+
+(c) By what factor does λ change when z goes up by one unit?
+
+(d) Does raising z by one unit *add* 0.5 to the intensity, or *multiply* it? Explain in one sentence.
+
+**Problem 3.** Use the model from Problem 2. Region R1 has area 2 km² and z = 0. Region R2 has area 10 km² and z = 1.
+
+(a) What is the expected count in each region?
+
+(b) R2's expected count is about 8 times R1's. How much of that factor comes from the difference in area, and how much from the difference in z?
+
+(c) A student fits `glm(counts ~ z, family = poisson)` *without* the offset, using data where the larger regions also tend to have larger z. Without running anything, predict what will happen to the estimated slope for z, and explain why.
+
+------------------------------------------------------------------------
+
+## Part 3: Simulation in R (about 40 minutes)
+
+Create a new notebook. Fill in each blank (`____`).
+
+**Part A: Simulate counts and recover the truth.** We make 100 pieces with different areas and a covariate, simulate counts from known values of β₀ and β₁, and see whether the fit finds them.
+
+```{r}
+set.seed(6)
+n_cells <- 100
+z <- runif(n_cells, -1, 1)
+area <- exp(1 + 0.8 * z + rnorm(n_cells, 0, 0.3))   # pieces differ in area
+
+beta0 <- 0.5
+beta1 <- 1.0
+mu <- area * ____(beta0 + beta1 * z)               # expected count in each piece
+counts <- rpois(n_cells, mu)
+
+fit <- glm(counts ~ z + offset(log(area)), family = ____)
+summary(fit)
+```
+
+*Before you run it,* write down what you hope the estimates for the intercept and the slope will be. Then compare them to the truth, using the standard errors in the summary to judge how close is close enough.
+
+**Part B: What if we forget the offset?** Fit the same data without it:
+
+```{r}
+fit_bad <- glm(counts ~ z, family = poisson)
+coef(fit)
+coef(fit_bad)
+```
+
+Compare the two slopes. Did your prediction from Problem 3(c) come true? Look at how we built `area`: it grows with z. What does the model without the offset do with that information?
+
+**Part C: The bridge back to point patterns.** Here we simulate an actual point pattern, bin it into strips, and fit it two ways.
+
+```{r}
+library(spatstat)
+set.seed(7)
+X <- rpoispp(function(x, y) exp(4 + 1.5 * x), lmax = exp(5.5))
+
+# bin the points into 10 vertical strips of equal width
+strip <- cut(X$x, breaks = seq(0, 1, by = 0.1), labels = FALSE, include.lowest = TRUE)
+counts <- tabulate(strip, nbins = 10)
+xmid <- seq(0.05, 0.95, by = 0.1)
+area <- rep(____, 10)            # the area of each strip in the unit square
+
+fit_bin <- glm(counts ~ xmid + offset(log(area)), family = poisson)
+coef(fit_bin)
+
+# fit using the exact point locations
+fit_ppm <- ppm(X ~ x)
+coef(fit_ppm)
+```
+
+The true values are 4 (intercept) and 1.5 (slope). How close are the binned fit and the exact-location fit to the truth, and to each other?
+
+**Optional extra.** Go back to Part A and repeat the simulation and fit 200 times, saving the slope each time:
+
+```{r}
+est <- replicate(200, {
+  counts <- rpois(n_cells, mu)
+  coef(glm(counts ~ z + offset(log(area)), family = poisson))['z']
+})
+mean(est)
+sd(est)
+```
+
+How does the mean compare with the true slope? How does `sd(est)` compare with the standard error you saw in the summary?
+
+------------------------------------------------------------------------
+
+## Part 4: Wrap-up (about 15 minutes)
+
+1.  **One-sentence reflection** at the bottom of your notebook: When we count events in pieces instead of using exact locations, what information do we lose?
+2.  **Muddiest point.** Send the group one or two sentences on what you found most confusing or hardest to believe.
+3.  Push your notebook to the repository and confirm it runs top to bottom from a fresh start.

@@ -1,0 +1,163 @@
+---
+title: "CYCLE Week1"
+author: "Zack Shin"
+date: "2026-10-06"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+\`## R Markdown
+
+This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+
+When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+
+# Week 1 Packet: What Is a Poisson Point Process?
+
+*Point Process Background & Examples · about 2 hours*
+
+## How this week works
+
+This packet has four components. I expect each part will take about this much investment:
+
+| Part | What                 | Time   |
+|------|----------------------|--------|
+| 1    | Reading              | 20 min |
+| 2    | Three short problems | 35 min |
+| 3    | Simulation in R      | 40 min |
+| 4    | Wrap-up              | 5 min  |
+
+**What to bring to the next meeting:**
+
+1.  Your R code, you can simply show me on your device, we can figure out a shared folder if that would be easier for the future.
+2.  Completed short answer problems in part 2
+3.  Any questions
+
+------------------------------------------------------------------------
+
+## Part 1: Reading (about 20 minutes)
+
+**Setting:** COnsider a map and a list of locations where something happened: clinic visits, reported incidents, lightning strikes. A *point process* is a mathematical model for patterns like this, where both the number of points and their locations are random. The simplest and most important one is the **Poisson point process**.
+
+**Parameter:** A Poisson point process has one number, the *intensity* λ, which is the average number of points per unit area. If a region A has area \|A\|, then the number of points that land in it, N(A), follows a Poisson distribution with mean λ\|A\|:
+
+> N(A) \~ Poisson(λ · \|A\|)
+
+Example: if λ = 4 events per km² and a region has area 2.5 km², you expect 4 × 2.5 = 10 events there. Notice that this is only an average. One realization might have 7 points, or 13, etc.
+
+**Independence:** If two regions do not overlap, the counts in them are independent. Knowing there were many points in one neighborhood tells you nothing about the next. This is what makes the process "completely random": points do not attract or repel each other.
+
+**Randomness & Uniformity:** For N points in a region, they are scattered randomly and uniformly. Every spot is equally likely for every point.
+
+**To simulate:** The facts above give a two-step recipe:
+
+1.  Draw the number of points N from a Poisson distribution with mean λ\|A\|.
+2.  Place the N points uniformly at random in the region.
+
+Both steps are needed. If you skipped step 1 and always used exactly 100 points, you would get a different, less random process.
+
+**Checking a pattern by counting:** One way to check whether a pattern looks Poisson is to divide the region into a grid and count the points in each cell. For a Poisson process, each cell's count is Poisson, and a Poisson distribution has its variance equal to its mean. So the *variance-to-mean ratio* of the cell counts should be near 1. If it is much larger, the points are clumped. If it is much smaller, they are unusually evenly spaced.
+
+A truly random pattern is counterintuitively *not* evenly spread. It has empty patches and apparent clusters purely by chance. People see these and assume something caused them, which is reason to run a statistical test before reading meaning into a "hotspot."
+
+**Connection:** Many humanitarian questions are about where events occur and how often: where to place clinics, which areas are under-served, how conflict events are distributed. The Poisson point process is the baseline model. It describes what "no pattern at all" looks like, so we can tell when there *is* one.
+
+**Key terms:** intensity (λ), point process, region (A), Poisson distribution, independence, variance-to-mean ratio.
+
+------------------------------------------------------------------------
+
+## Part 2: Problems (about 35 minutes)
+
+Show a few lines of work for each.
+
+**Problem 1.** A region has area 2.5 km², and events occur at intensity λ = 4 per km².
+
+(a) What is the expected number of events in the region?
+
+    (a) 4\*2.5=10
+
+(b) What is the probability that there are no events at all? *(Hint: the count is Poisson. Use the Poisson formula with mean λ\|A\|.)*
+
+    (a) P(N=0) = e^(-10)^ \*10^0^ /0! = e\^(-10) = 0.000045
+
+**Problem 2.** Two regions do not overlap. Their areas are 1 km² and 3 km², and λ = 4 per km².
+
+(a) What is the expected count in each region?
+
+    (a) 4x1 and 4x3
+
+(b) What is the distribution of the total count across both regions together? *(Hint: what is the area of the combined region?)*
+
+    (a) The combined region has area 4 so the total is Poisson(16). The sum of independent poissons is poisson with the summed mean
+
+**Problem 3.** Twenty points are scattered over the unit square. Each point independently lands in the left half with probability 1/2.
+
+(a) What is the distribution of the number of points in the left half?
+
+    (a) Binomial(20, 1/2)
+
+(b) What is its mean?
+
+    (a) np = 20\*0.5 = 10
+
+(c) What is the probability that all 20 points land in the left half?
+
+    (a) (1/2)\^20 = 9.5x10 \^(-7)
+
+------------------------------------------------------------------------
+
+## Part 3: Simulation in R (about 40 minutes)
+
+Open the shared Posit Cloud project and create a new notebook. If the `spatstat` package is not installed, run `install.packages('spatstat')` once; it takes a few minutes.
+
+**Step 1: Build a pattern by hand.** Fill in each blank (`____`) using the two-step recipe from the reading.
+
+```{r}
+library(spatstat)
+set.seed(1)
+lambda <- 100
+
+# Step 1: draw the random number of points
+n <- rpois(1, lambda)     # which function draws a Poisson random number?
+
+# Step 2: place the points uniformly in the unit square
+x <- runif(n)
+y <- runif(n)
+plot(x, y, asp = 1)
+
+# Turn it into a point pattern so we can use spatstat tools on it
+Xhand <- ppp(x, y, window = owin(c(0, 1), c(0, 1)))
+```
+
+**Step 2: Compare with the built-in version.**
+
+```{r}
+X <- rpoispp(lambda)
+plot(X)
+```
+
+Look at both plots. Can you tell which one you built by hand?
+
+**Step 3: Predict, then check.** Split the unit square into a 5 by 5 grid and count the points in each of the 25 cells.
+
+*Before you run anything,* write down what you expect the variance-to-mean ratio of the 25 counts to be, and why.
+
+Then check:
+
+```{r}
+q <- as.vector(quadratcount(X, nx = 5, ny = 5))
+var(q) / mean(q)
+```
+
+Run the same two lines on `Xhand`, too. Is the ratio exactly what you predicted? If not, does that mean something is wrong? (Think about how many cells you are averaging over.)
+
+**Optional extra, if you are curious.** Repeat Step 1 about 200 times (a loop or `replicate` works), recording only the number of points `n` each time. Compute the mean and the variance of those 200 values. What do you notice?
+
+------------------------------------------------------------------------
+
+## Part 4: Wrap-up (about 5 minutes)
+
+1.  **One-sentence reflection** at the bottom of your notebook: Does your simulated pattern look "random" to you? Why or why not?

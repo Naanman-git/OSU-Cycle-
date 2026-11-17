@@ -1,0 +1,176 @@
+---
+title: "CYCLE Week3"
+author: "Zack Shin"
+date: "2026-10-19"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## R Markdown
+
+This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+
+When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+
+# Week 3 Packet: When the Intensity Varies
+
+*Point Process Research Club · about 2 hours this week*
+
+## How this week works
+
+| Part | What                 | Time   |
+|------|----------------------|--------|
+| 1    | Reading              | 20 min |
+| 2    | Three short problems | 35 min |
+| 3    | Simulation in R      | 40 min |
+| 4    | Wrap-up              | 15 min |
+
+**What to bring to the next meeting:**
+
+1.  R code completed
+2.  Answers to part 2
+3.  Any questions
+
+------------------------------------------------------------------------
+
+## Part 1: Reading (about 20 minutes)
+
+**Where we left off.** In Week 1 the intensity λ was a single constant, so points were spread evenly. In Week 2 we saw that if the chance of keeping a point depends on location, the kept points have an intensity that *changes* across the map. This week we make that idea official.
+
+**The intensity function.** An *inhomogeneous* Poisson point process has an intensity that depends on location. We write it λ(x, y), a nonnegative number measuring how many points per unit area we expect near the spot (x, y). Where λ(x, y) is large, we expect many points. Where it is small, we expect few.
+
+**The rule for how many.** The counting rule from Week 1 still works, with one change. The number of points in a region A is Poisson, and its mean is the intensity *added up over the region*:
+
+> N(A) \~ Poisson( ∫ₐ λ(x, y) dx dy )
+
+The symbol ∫ means "add up λ over every tiny piece of A." When λ is a constant, the sum is just λ times the area, which is exactly the Week 1 rule. As before, counts in non-overlapping regions are independent.
+
+**The rule for where.** If you know there are N points in the region, each one lands independently, but no longer uniformly. A point is more likely to land where λ is larger, in proportion to λ.
+
+**A recipe for simulating one (the thinning trick).** We can simulate an inhomogeneous process using only what we already know:
+
+1.  Choose a number λ_max that is at least as large as the biggest value of λ(x, y) anywhere in the region.
+2.  Simulate an ordinary homogeneous Poisson process with intensity λ_max.
+3.  Go through the points and keep the one at location (x, y) with probability λ(x, y) / λ_max, deleting it otherwise.
+
+The kept points form a Poisson process with intensity λ(x, y). This is exactly the thinning from Week 2, with the keep probability depending on location.
+
+**Hotspots are not the same as attraction.** Imagine a map with a hotspot where λ is high. The points there will look like a cluster. But the points are still completely independent of one another: no point is influencing any other. The clump arises only because more points land there on average. A different kind of clustering, where points are actually drawn toward each other, needs a different model. Telling the two apart is one of the hardest and most interesting parts of spatial statistics, and we will come back to it.
+
+**Why this matters.** Conflict events do not occur uniformly. They are more common in some places than others, perhaps near roads, near cities, or near borders. The intensity function is the way we describe that variation, and it will soon be the thing we try to *estimate* from data.
+
+**Key terms:** intensity function λ(x, y), inhomogeneous process, λ_max, thinning, hotspot.
+
+------------------------------------------------------------------------
+
+## Part 2: Problems (about 35 minutes)
+
+Show a few lines of work for each. The region in every problem is the unit square, 0 ≤ x ≤ 1 and 0 ≤ y ≤ 1.
+
+**Problem 1.** The intensity is λ(x, y) = 100x. It is zero along the left edge and 100 along the right edge.
+
+(a) What is the expected total number of points in the square? *(Hint: add up λ over the square. Since λ depends only on x, first work out the integral of 100x for x from 0 to 1.)*
+
+    (a) The square has width 1 in y, so this is 100 x (1/2) = 50
+
+(b) What is the expected number of points in the left half (x \< 0.5)?
+
+    (a) 100(0.5\^2/2) = 100x0.125 = 12.5
+
+(c) What is the expected number in the right half?
+
+    (a) 50-12.5 = 37.5
+
+**Problem 2.** The intensity is 20 in the bottom half of the square (y \< 0.5) and 80 in the top half (y ≥ 0.5).
+
+(a) What is the expected number of points in each half?
+
+    (a) Bottom has area 0.5, so expected count is 20x0.5. Top half is 80x0.5
+
+(b) What is the distribution of the total number of points in the whole square?
+
+    (a) Total is Poisson(50)
+
+(c) If you pick one point at random from the pattern, what is the probability that it is in the top half?
+
+    (a) Change of a random point in top half is 40/50 = 0.5
+
+**Problem 3.** You start with an ordinary Poisson process of intensity λ_max = 100 on the unit square. You keep each point with probability equal to its x-coordinate.
+
+(a) What is the intensity of the kept points?
+
+    (a) 100x
+
+(b) Why must λ_max be at least as large as the biggest value of the target intensity? What would go wrong otherwise?
+
+    (a) Keep probability must be at most 1, since a probability cannot exceed 1.
+
+(c) Suppose you wanted the target intensity λ(x, y) = 100x + 50. What is the smallest λ_max you could use?
+
+    (a) Largest value of 100x + 50 on the unit square is 150, so lambda_max must be at least 150
+
+------------------------------------------------------------------------
+
+## Part 3: Simulation in R (about 40 minutes)
+
+Create a new notebook. Fill in each blank (`____`).
+
+**Part A: Simulate by thinning.** This builds the process from Problem 3.
+
+```{r}
+library(spatstat)
+set.seed(4)
+
+lambda_max <- 100
+X <- rpoispp(lambda_max)
+
+p <- 25                      # keep probability for each point: its x-coordinate
+Xinhom <- X[runif(npoints(X)) < p]
+
+npoints(Xinhom)
+plot(Xinhom, main = 'Thinned pattern')
+
+# The built-in version, for comparison
+Xb <- rpoispp(function(x, y) 100 * x)
+plot(Xb, main = 'Built-in version')
+```
+
+*Before you run it,* predict roughly how many points `Xinhom` should have and which side of the square should be denser.
+
+**Part B: Check the left and right counts.** Repeat the thinning many times and see whether the average counts match Problem 1.
+
+```{r}
+res <- replicate(200, {
+  X <- rpoispp(100)
+  Y <- X[runif(npoints(X)) < X$x]
+  c(left = sum(Y$x < 0.5), right = sum(Y$x >= 0.5))
+})
+rowMeans(res)
+```
+
+Do the two averages match your answers to Problem 1(b) and 1(c)?
+
+**Part C: A hotspot.** Here the intensity has a smooth peak near the point (0.3, 0.7) on top of a flat background.
+
+```{r}
+hot <- function(x, y) 200 * exp(-((x - 0.3)^2 + (y - 0.7)^2) / (2 * 0.1^2)) + 20
+
+plot(as.im(hot, owin()), main = 'Intensity surface')
+set.seed(5)
+Z <- rpoispp(hot, lmax = 220)
+plot(Z, main = 'One realization')
+```
+
+The largest value of `hot` is 220 (at the center of the peak), which is why we gave `lmax = 220`. Compare the two plots. Do the points follow the intensity surface exactly? Should they?
+
+**Optional extra.** Estimate the expected number of points for the hotspot by running `mean(replicate(200, npoints(rpoispp(hot, lmax = 220))))`. A rough hand estimate: the background contributes 20 points (intensity 20 times area 1), and the peak adds roughly 200 × 2π × 0.1² more. How close do you get?
+
+------------------------------------------------------------------------
+
+## Part 4: Wrap-up (about 15 minutes)
+
+1.  **One-sentence reflection** at the bottom of your notebook: Think of a real situation where only some events get recorded. Who or what might be missing from the record?
+2.  Write down a question you have

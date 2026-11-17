@@ -1,0 +1,174 @@
+---
+title: "Cycle Week2"
+author: "Zack Shin"
+date: "2026-10-19"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## R Markdown
+
+This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+
+When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this: \# Week 2 Packet: Thinning and Superposition
+
+*Point Process Research Club · about 2 hours this week*
+
+## How this week works
+
+Same pace as last week. Budget your time roughly like this:
+
+| Part | What                 | Time   |
+|------|----------------------|--------|
+| 1    | Reading              | 20 min |
+| 2    | Three short problems | 35 min |
+| 3    | Simulation in R      | 40 min |
+| 4    | Wrap-up              | 15 min |
+
+**What to bring to the next meeting:**
+
+1.  R code completed
+2.  Answers to part 2
+3.  Any questions
+
+------------------------------------------------------------------------
+
+## Part 1: Reading (about 20 minutes)
+
+**Recall:** Last week we met the Poisson point process with intensity λ. The count in a region A is Poisson with mean λ\|A\|, and counts in disjoint regions are independent.
+
+**Combining processes (superposition):** Suppose you overlay two *independent* Poisson point processes with intensities λ₁ and λ₂. The combined pattern is again a Poisson point process, with intensity λ₁ + λ₂. If you look at one point in the combined pattern, the chance it came from the first process is λ₁ / (λ₁ + λ₂).
+
+**Deleting points at random (thinning):** Now start with one Poisson process with intensity λ, and go through its points one at a time. Keep each point with probability p and delete it otherwise, with each decision made independently. The points you kept form a Poisson process with intensity **pλ**.
+
+There is a surprising companion fact, which we will accept without proof: the *deleted* points form a Poisson process with intensity (1 − p)λ, and the kept and deleted patterns are independent of each other.
+
+**Intuitively, observation is inherently thinning:** In real life, true events happen, but only some of them get recorded. If each event is recorded independently with probability p, then the events we actually see are a thinned process with intensity pλ. This is precisely the case with humanitarian data: the record is not the full set of events, only the ones that someone witnessed, reported, and wrote down.
+
+Now suppose the recording probability depends on *where* the event happens. For example, events near towns are more likely to be recorded than events in remote areas. Then the recorded events have an intensity that varies across the map, even if the true events are spread evenly.
+
+Thus, from the recorded events alone, all you can see is the product of the true intensity and the recording probability. If an area has few recorded events, that could mean few events happened there, or that many happened and few were recorded. The data by themselves cannot tell you which. This idea will come back repeatedly in our project.
+
+**Note:** Thinning keeps the process Poisson only when each keep-or-delete decision is made independently of the other points. If instead you delete any point that sits too close to another one, the result is no longer Poisson (it becomes more evenly spaced). We will see this later.
+
+**Key terms:** superposition, thinning, retention probability (p), thinned intensity (pλ), observation process.
+
+------------------------------------------------------------------------
+
+## Part 2: Problems (about 35 minutes)
+
+Show a few lines of work for each.
+
+**Problem 1.** Two independent Poisson point processes are laid over the unit square, with intensities λ₁ = 30 and λ₂ = 20.
+
+(a) What kind of process is the combined pattern, and what is its intensity?
+
+    (a) 30+20=50
+
+(b) What is the expected total number of points in the unit square?
+
+    (a) Unit square has area 1, so 50
+
+(c) Pick one point at random from the combined pattern. What is the probability that it came from the first process?
+
+    (a) 30/50 = 0.6
+
+**Problem 2.** A Poisson process with intensity λ = 50 is thinned, keeping each point independently with probability p = 0.3.
+
+(a) What is the intensity of the kept points?
+
+    (a) p(lambda) = 0.3\*50 = 15
+
+(b) What is the expected number of kept points in a region of area 4?
+
+    (a) 15x4 = 60
+
+**Problem 3.** True events follow a Poisson process with intensity λ = 100 on the unit square. Events in the left half (x \< 0.5) are reported with probability 0.8, and events in the right half (x ≥ 0.5) are reported with probability 0.2. Reports are independent of each other.
+
+(a) What is the expected number of *reported* events in the left half? In the right half?
+
+    (a) 
+
+        (a) The true process has intensity 100, so the left half (area 0.5) has 50 true events on average. With reporting probability 0.8, the reported intensity on the left is 80, so the expected reported count is 80 × 0.5 = **40**. On the right, the reported intensity is 0.2 × 100 = 20, so the expected reported count is 20 × 0.5 = **10**.
+
+(b) An analyst sees only the reported events and assumes the intensity is the same everywhere. What intensity would they estimate for the whole square, and how does it compare to the truth?
+
+    (a) 
+
+        (b) The expected total number of reported events is 40 + 10 = 50, over an area of 1, so the analyst would estimate an intensity of about **50**. The truth is 100, so they underestimate by half.
+
+(c) The analyst notices there are about four times as many reports on the left as on the right. Give two different explanations that would both be consistent with that observation.
+
+    (a) valid explanations:
+
+        - The true intensity really is higher on the left (more events happen there), and reporting is the same everywhere.
+
+        - The true intensity is the same everywhere, but events on the left are more likely to be reported (better access, more media or aid presence, and so on).
+
+------------------------------------------------------------------------
+
+## Part 3: Simulation in R (about 40 minutes)
+
+Create a new notebook. Fill in each blank (`____`).
+
+**Part A: Thinning one pattern.**
+
+```{r}
+library(spatstat)
+set.seed(2)
+
+X <- rpoispp(200)
+keep <- runif(npoints(X)) < 200      # keep each point with probability 0.3
+Xthin <- X[keep]
+
+npoints(X)
+npoints(Xthin)
+par(mfrow = c(1, 2))
+plot(X, main = 'All events')
+plot(Xthin, main = 'Kept events')
+```
+
+*Before you run it,* write down roughly how many points you expect `Xthin` to have.
+
+**Part B: Repeating it many times.**
+
+```{r}
+kept <- replicate(200, {
+  X <- rpoispp(200)
+  sum(runif(npoints(X)) < 0.3)
+})
+mean(kept)
+var(kept)
+```
+
+*Before you run it,* predict the mean and the variance of `kept`. Remember that the kept points should themselves be a Poisson process. What does that tell you about the variance?
+
+**Part C: A reporting-bias picture.** Here the retention probability depends on location, as in Problem 3.
+
+```{r}
+set.seed(3)
+X <- rpoispp(200)
+p <- ifelse(X$x < 0.5, 0.8, 0.2)    # 0.8 on the left, 0.2 on the right
+Xobs <- X[runif(npoints(X)) < p]
+
+par(mfrow = c(1, 2))
+plot(X, main = 'True events')
+plot(Xobs, main = 'Reported events')
+
+quadratcount(X, nx = 2, ny = 1)
+quadratcount(Xobs, nx = 2, ny = 1)
+```
+
+Compare the left-right counts for the true events and the reported events. Look only at the *Reported events* plot and imagine you did not know the truth. What would you conclude about where events happen?
+
+**Optional extra.** Superposition: run `Y <- superimpose(rpoispp(30), rpoispp(20))` about 200 times, record `npoints(Y)` each time, and compare the mean and variance to what Problem 1 predicts.
+
+------------------------------------------------------------------------
+
+## Part 4: Wrap-up (about 15 minutes)
+
+1.  **One-sentence reflection** at the bottom of your notebook: Think of a real situation where only some events get recorded. Who or what might be missing from the record?
+2.  Write down a question you have
